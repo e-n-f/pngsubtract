@@ -2,11 +2,33 @@
 #include <stdlib.h>
 #include <string.h>
 #include <png.h>
+#include <unistd.h>
+
+void usage(char **argv) {
+	printf("Usage: %s [-t] image.png mask.png\n", argv[0]);
+	exit(EXIT_FAILURE);
+}
 
 int main(int argc, char **argv) {
-	if (argc != 3) {
-		printf("Usage: %s image.png mask.png\n", argv[0]);
-		exit(EXIT_FAILURE);
+	int transparent = 0;
+
+	extern int optind;
+	extern char *optarg;
+	int i;
+
+	while ((i = getopt(argc, argv, "t")) != -1) {
+		switch (i) {
+		case 't':
+			transparent = 1;
+			break;
+
+		default:
+			usage(argv);
+		}
+	}
+
+	if (argc - optind != 2) {
+		usage(argv);
 	}
 	
 	png_image image1, image2;
@@ -18,29 +40,29 @@ int main(int argc, char **argv) {
 	unsigned char *buffer1;
 	unsigned char *buffer2;
 
-	if (png_image_begin_read_from_file(&image1, argv[1])) {
+	if (png_image_begin_read_from_file(&image1, argv[optind])) {
 		image1.format = PNG_FORMAT_RGBA;
 		buffer1 = malloc(PNG_IMAGE_SIZE(image1));
 
 		if (!png_image_finish_read(&image1, NULL, buffer1, 0, NULL)) {
-			fprintf(stderr, "read failure in %s\n", argv[1]);
+			fprintf(stderr, "read failure in %s\n", argv[optind]);
 			exit(EXIT_FAILURE);
 		}
 	} else {
-		fprintf(stderr, "read failure in %s\n", argv[1]);
+		fprintf(stderr, "read failure in %s\n", argv[optind]);
 		exit(EXIT_FAILURE);
 	}
 
-	if (png_image_begin_read_from_file(&image2, argv[2])) {
+	if (png_image_begin_read_from_file(&image2, argv[optind + 1])) {
 		image2.format = PNG_FORMAT_RGBA;
 		buffer2 = malloc(PNG_IMAGE_SIZE(image2));
 
 		if (!png_image_finish_read(&image2, NULL, buffer2, 0, NULL)) {
-			fprintf(stderr, "read failure in %s\n", argv[2]);
+			fprintf(stderr, "read failure in %s\n", argv[optind + 1]);
 			exit(EXIT_FAILURE);
 		}
 	} else {
-		fprintf(stderr, "read failure in %s\n", argv[2]);
+		fprintf(stderr, "read failure in %s\n", argv[optind + 1]);
 		exit(EXIT_FAILURE);
 	}
 
@@ -49,7 +71,6 @@ int main(int argc, char **argv) {
 		exit(EXIT_FAILURE);
 	}
 
-	int i;
 	for (i = 0; i < image1.width * image1.height; i++) {
 		double a = buffer1[4 * i + 3] / 255.0;
 
@@ -77,10 +98,25 @@ int main(int argc, char **argv) {
 			b = 0;
 		}
 
-		buffer1[4 * i + 0] = r;
-		buffer1[4 * i + 1] = g;
-		buffer1[4 * i + 2] = b;
-		buffer1[4 * i + 3] = 255; // XXX alpha
+		if (transparent) {
+			int max = r;
+			if (g > max) {
+				max = g;
+			}
+			if (b > max) {
+				max = b;
+			}
+
+			buffer1[4 * i + 0] = (double) r / max * 255;
+			buffer1[4 * i + 1] = (double) g / max * 255;
+			buffer1[4 * i + 2] = (double) b / max * 255;
+			buffer1[4 * i + 3] = max;
+		} else {
+			buffer1[4 * i + 0] = r;
+			buffer1[4 * i + 1] = g;
+			buffer1[4 * i + 2] = b;
+			buffer1[4 * i + 3] = 255;
+		}
 	}
 
         png_image_write_to_stdio(&image1, stdout, 0, buffer1, 4 * image1.width, NULL);
