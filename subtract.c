@@ -5,21 +5,26 @@
 #include <unistd.h>
 
 void usage(char **argv) {
-	printf("Usage: %s [-t] image.png mask.png\n", argv[0]);
+	printf("Usage: %s [-t] [-a] image.png mask.png\n", argv[0]);
 	exit(EXIT_FAILURE);
 }
 
 int main(int argc, char **argv) {
 	int transparent = 0;
+	int add = -1;
 
 	extern int optind;
 	extern char *optarg;
 	int i;
 
-	while ((i = getopt(argc, argv, "t")) != -1) {
+	while ((i = getopt(argc, argv, "ta")) != -1) {
 		switch (i) {
 		case 't':
 			transparent = 1;
+			break;
+
+		case 'a':
+			add = 1;
 			break;
 
 		default:
@@ -84,9 +89,9 @@ int main(int argc, char **argv) {
 		int g2 = buffer2[4 * i + 1] * a2;
 		int b2 = buffer2[4 * i + 2] * a2;
 
-		r -= r2;
-		g -= g2;
-		b -= b2;
+		r += r2 * add;
+		g += g2 * add;
+		b += b2 * add;
 
 		if (r < 0) {
 			r = 0;
@@ -96,6 +101,16 @@ int main(int argc, char **argv) {
 		}
 		if (b < 0) {
 			b = 0;
+		}
+
+		if (r > 255) {
+			r = 255;
+		}
+		if (g > 255) {
+			g = 255;
+		}
+		if (b > 255) {
+			b = 255;
 		}
 
 		if (transparent) {
